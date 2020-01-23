@@ -91,7 +91,7 @@
 	
 ## License
 
-This project is licensed under the GNU License - see the LICENSE file in the following location for details: https://github.com/sideshowtee1003/Agent-Based-Modelling/blob/master/LICENSE
+This project is licensed under the GNU License - see the LICENSE file in the following location for details: https://github.com/sideshowtee1003/Highway-Defect-Assignment/blob/master/LICENSE
 
 
 ## Author
