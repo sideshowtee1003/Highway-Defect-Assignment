@@ -6,6 +6,7 @@ import glob
 print('Hello ' + getpass.getuser() + ', starting data preparation...')
 
 
+
 # Set up variables:
 # DE05 variables
 DE05_input = "C:/Temp/Assignment/Source Data/DE05 - Defects.xls/'DE05 - Defects$'"
@@ -51,29 +52,31 @@ for fc in FCs:
     arcpy.FeatureClassToFeatureClass_conversion(fc,Defect_gdb,fc[:-4]) # -4 removes ".shp" suffix
     print("Import base data:" + fc[:-4] + " loaded into defect database")
 
+
+
 # Import and process DE05 defects report:
-# DE05 Process: Make XY Event Layer
+# DE05: Create XY event layer from DE05 report
 arcpy.MakeXYEventLayer_management(DE05_input, "Easting", "Northing", DE05_event, SpatialRef)
 
 # Set target workspace to GDB database
 arcpy.env.workspace = Defect_gdb
 
-# DE05 Process: Save To Layer File
+# DE05: Convert DE05 report To Layer File
 arcpy.SaveToLayerFile_management(DE05_event, DE05_lyr)
 
-# DE05 Process: Copy Features
+# DE05: Copy features from DE05 layer file to feature class
 arcpy.CopyFeatures_management(DE05_lyr, DE05_fc)
 
-# DE05 Process: Create new version of feature class with SQL expression filter for completed and superseded defects
+# DE05: Create new version of DE05 feature class with SQL expression filter for completed and superseded defects
 arcpy.Select_analysis(DE05_fc, DE05_filter, where_clause="Defect_Status <> 'COMPLETED' AND Defect_Status <> 'SUPERSEDED'")
 
 
 
-# Create Catchment Areas:
-# Set the extent environment to ensure catchment areas (created next) cover the entire network
+# Create depot catchment areas:
+# Set the extent environment to ensure catchment areas (created next) cover the entire network (default setting didnt cover all network)
 arcpy.env.extent = arcpy.Extent(395000, 375000, 526000, 486000)
 
-# Create Thiessen Polygons for Depots to create Depot catchment areas for full network coverage
+# Create Thiessen Polygons for depots to create depot catchment areas for full network coverage
 # *Requires business analyst desktop extension*
 arcpy.CreateThiessenPolygons_analysis(Depots, Depots_Catchment, fields_to_copy="ALL")
 
@@ -90,7 +93,7 @@ arcpy.DeleteField_management(DE05v3, drop_field="Join_Count;TARGET_FID;Input_FID
 # Rename new field for responsible depot for each defect repair
 arcpy.AlterField_management(DE05v3, field="DEPOT", new_field_name="Responsible_Depot")
 
-# Testing that Responsible_Depot field has been successfully created:
+# Testing: Responsible_Depot field has been successfully created:
 if len(arcpy.ListFields(DE05v3, "Responsible_Depot"))>0:
     print ("Responsible depot field successfully created")
 else:
@@ -102,7 +105,7 @@ else:
 # New fields will be created: 
 # Section = Network reference 
 # Chainage = Direction of travel distance from start of section
-# DISTANCE = Defect location offset +/- from network
+# DISTANCE = Defect location offset +/- offset from network line geometry
 Section_ref = "FEATURE_LA" # Set section reference field variable
 Search_dist = "50 Meters" # Maximum search distance variable
 Linear_ref = "C:/temp/Assignment/DefectInspections.gdb/DE05RouteAnalysis" # Set linear referencing variable
@@ -116,23 +119,26 @@ arcpy.LocateFeaturesAlongRoutes_lr(DE05v3, Chart_Network, Section_ref, Search_di
 # Join newly created linear referencing table fields to defects feature class:
 arcpy.JoinField_management(DE05v3, in_field="OBJECTID", join_table=Linear_ref, join_field="INPUTOID", fields="Section;Chainage;Distance")
 
-# Testing that Section field has been successfully created:
+
+
+# Testing: Section field has been successfully created:
 if len(arcpy.ListFields(DE05v3, "Section"))>0:
     print ("Section field successfully created")
 else:
     print("Creating section field unsuccessful")
 
-# Testing that Chainage field has been successfully created:
+# Testing: Chainage field has been successfully created:
 if len(arcpy.ListFields(DE05v3, "Chainage"))>0:
     print ("Chainage field successfully created")
 else:
     print("Creating chainage field unsuccessful")
 
-# Testing that Distance field has been successfully created:
+# Testing: Distance field has been successfully created:
 if len(arcpy.ListFields(DE05v3, "Distance"))>0:
     print ("Distance field successfully created")
 else:
     print("Creating distance field unsuccessful")
+
 
 
 # Calculate XSP:
@@ -142,7 +148,9 @@ arcpy.JoinField_management(DE05v3, in_field="Section", join_table="ChartNetwork"
 # Set local variables
 fieldName = "XSP"
 expression = "CalcXSP(!Distance!, !No_of_Lane!)"
-# Set If Elif Else statement as a string variable
+# Create CalcXSP function and set If Elif Else statement as a string variable. 
+# The function uses the following assumptions: Hard shoulder exists everywhere, hard shoulder width = 3.3m, lane width = 3.6m
+# No_of_Lane field is used to check how many lanes are present at that network location
 XSPcodeblock = """
 def CalcXSP(Distance, No_of_Lane):
     if (Distance > 0 and Distance <= 3.3):
@@ -161,8 +169,8 @@ def CalcXSP(Distance, No_of_Lane):
 # Create XSP field
 arcpy.AddField_management(DE05v3, fieldName, "STRING")
  
-# Calculate XSP from variables
-arcpy.CalculateField_management(DE05v3, fieldName, expression, "PYTHON_9.3", XSPcodeblock) # Insert If Elif Else statement string into python codeblock
+# Calculate XSP from previously defined variables
+arcpy.CalculateField_management(DE05v3, fieldName, expression, "PYTHON_9.3", XSPcodeblock) # Insert If Elif Else statement string into python codeblock positional arg
 
 # Delete unwanted fields following analysis
 arcpy.DeleteField_management(DE05v3, drop_field="No_of_Lane;Distance")
@@ -176,22 +184,24 @@ else:
 
 
 # Import and process DE02 defects report:
-# DE02 Process: Table to Table
+# DE02: Table to Table, xls to gdb
 arcpy.TableToTable_conversion(DE02_input, Defect_gdb, "DE02")
 
 
 
-# Link the two reports/feature classes:
-# Create relationship class between 'DE05' feature class and 'DE02' table with additional inspection information
+# Link the two reports/feature classes for GIS users:
+# Create relationship class between 'DE05' feature class and 'DE02' table, which contains additional inspection information
+# The relationship is one to many because there may be multiple DE02 rows per DE05 feature.
 DE02_fc = "C:/Temp/Assignment/DefectInspections.gdb/DE02" # Create DE02 feature class variable
 relClass = "DefectInspections.gdb/DefectsRel"
-forLabel = "Attributes from DE02"
-backLabel = "Attributes and Features from DE05"
+forLabel = "Attributes from DE02" # Sets DE02 relationship label when inspecting features in GIS software
+backLabel = "Attributes and Features from DE05" # Sets DE05 relationship label when inspecting features in GIS software
 primaryKey = "Defect_Id"
 foreignKey = "Defect_Id"
 arcpy.CreateRelationshipClass_management(DE05v3, DE02_fc, relClass, "SIMPLE", forLabel, 
 					      backLabel, "NONE", "ONE_TO_MANY", 
 					     "NONE", primaryKey, foreignKey)
+
 
 
 # Add and Calculate field for setting the Display Expression field for GIS end users
@@ -203,7 +213,6 @@ arcpy.CalculateField_management(DE05v3, "Display_Name", "\"DE05: \" & [Defect_Id
 # DE02:
 arcpy.AddField_management(DE02_fc, "Display_Name", "STRING")
 arcpy.CalculateField_management(DE02_fc, "Display_Name", "\"DE02: \" & [Defect_Id]")
-
 
 print("Data analysis complete. Beginning data display exports...")
 
@@ -217,23 +226,22 @@ Dissolve_Field = "SITE_NAME"
 # Run Dissolve tool
 arcpy.Dissolve_management(Chart_Network, Network_Dissolve, Dissolve_Field)
 
-
-
-# Produce PNG outputs for non-GIS users/operatives (originally tried PDFs, but PNG exports completed quicker during testing):
+# Produce PNG outputs for non-GIS users/operatives:
 # Data Driven pages are used based on SITE_NAME field
 # Set MXD template for data driven pages 
 mxd = arcpy.mapping.MapDocument("C:/temp/Assignment/Data Driven Template/Defects Data.mxd")
 
-# Clear existing files in output folder
+# Clear existing, superseded files in output folder
 files = glob.glob(r'C:/temp/Assignment/outputPNGS/*')
 for f in files:
     os.remove(f)
 
 # Loop through data driven pages (37 in total), exporting each with specific page number and title
 for pageNum in range(1, mxd.dataDrivenPages.pageCount + 1):  
-  mxd.dataDrivenPages.currentPageID = pageNum # Page number ID to be input into file name 
-  print "Exporting page {0} of {1}".format(str(mxd.dataDrivenPages.currentPageID), str(mxd.dataDrivenPages.pageCount))
-  pageName = mxd.dataDrivenPages.pageRow.SITE_NAME # Enables title to be input into file name
+  mxd.dataDrivenPages.currentPageID = pageNum # Page number ID to form part of file name
+  print "Exporting page {0} of {1}".format(str(mxd.dataDrivenPages.currentPageID), str(mxd.dataDrivenPages.pageCount)) # Print for each loop item
+  pageName = mxd.dataDrivenPages.pageRow.SITE_NAME # SITE_NAME attribute to form part of file name
+  # Export to png at below file location (originally tried PDFs, but PNG exports completed quicker during testing)
   arcpy.mapping.ExportToPNG(mxd, "C:/temp/Assignment/outputPNGs/Page" + str(pageNum) + " - " + pageName + ".PNG", resolution=200) 
 del mxd
 
@@ -271,16 +279,18 @@ DepotFCs=arcpy.ListFeatureClasses()
 
 # Loop through all depot feature classes and export them to excel output folder
 for Depotfc in DepotFCs:
-    print("Exporting " + Depotfc + "defect spreadsheet to: " + "C:/temp/Assignment/outputExcel")
+    print("Exporting " + Depotfc + " defect spreadsheet to: " + "C:/temp/Assignment/outputExcel")
     arcpy.TableToExcel_conversion(Depotfc,Depot_xls + Depotfc + "_Defects.xls")
 
 
 
-# Run testing on created field values:
-# Responsible_Depot
+# Testing: Responsible_Depot created field values. Are any missing/empty?
 print("Testing for missing Responsible_Depot values:")
 with arcpy.da.SearchCursor(DE05v3, ("Defect_Id", "Responsible_Depot")) as cursor:
     for row in cursor:
+        # The filter function, filters each element of Responsible_Depot/row[1] field, testing if true or not.
+        # Using "not" filter inverts this function. 
+        # "None" tests empty/missing fields
         if not filter(None, row[1]):
             print "{} ----> EMPTY VALUE FOUND!".format(row[0])
         # This can be uncommented to print all successfully populated values:
@@ -288,7 +298,7 @@ with arcpy.da.SearchCursor(DE05v3, ("Defect_Id", "Responsible_Depot")) as cursor
             #print "Defect_Id: " + str(row[0]) + " ----> " + str(row[1])
 print("Testing for missing Responsible_Depot values completed")
 
-# Section
+# Testing: Section created field values. Are any missing/empty?
 print("Testing for missing Section values:")
 with arcpy.da.SearchCursor(DE05v3, ("Defect_Id", "Section")) as cursor:
     for row in cursor:
@@ -299,19 +309,18 @@ with arcpy.da.SearchCursor(DE05v3, ("Defect_Id", "Section")) as cursor:
             #print "Defect_Id: " + str(row[0]) + " ----> " + str(row[1])
 print("Testing for missing Section values completed")
 
-# Chainage
+# Testing: Chainage created field values. Are any null?
 print("Testing for missing Chainage values:")
 with arcpy.da.SearchCursor(DE05v3, ("Defect_Id", "Chainage")) as cursor:
     for row in cursor:
-        if row[1] is None: # "if not filter" did not work on integer data type
+        if row[1] is None: # "if not filter" did not work on double data type
             print "{} ----> EMPTY VALUE FOUND!".format(row[0])
         # This can be uncommented to print all successfully populated values:
         #else:
             #print "Defect_Id: " + str(row[0]) + " ----> " + str(row[1])
 print("Testing for missing Chainage values completed")
 
-
-# XSP
+# Testing: XSP created field values. Are any missing/empty?
 print("Testing for missing XSP values:")
 with arcpy.da.SearchCursor(DE05v3, ("Defect_Id", "XSP")) as cursor:
     for row in cursor:
@@ -329,6 +338,6 @@ print("Testing for missing XSP values completed")
 Delete_SS = [DE05_lyr, DE05_fc, DE05_filter, Linear_ref]
 # Loop through list, deleting the files that are matched
 for fc_SS in Delete_SS:
-    print("Deleting superseded data: " + fc_SS)
+    print("Deleting superseded data: " + fc_SS) # Print each deleted featureclass/table
     if arcpy.Exists(fc_SS):
         arcpy.Delete_management(fc_SS)

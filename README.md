@@ -17,6 +17,10 @@
 		- Distance/offset: the distance in metres that the defect is located from the chart network sphapefile geometry.
 		- XSP: (Cross sectional position) of the defect on the carriageway. Calulated from distance/offset and carriageway structure (number of lanes etc).
 			- This cannot be 100% accurate, due to accuracy of the source data available: GPS coordinates, location of network strings (approx lane 1 left road marking) etc.
+			- There are also limitations and assumptions made:
+				- Hard shoulder exists network wide (lack of data to tell us otherwise)
+				- Hard shoulder width = the average standard, 3.3m (lack of data to tell us otherwise)
+				- Lane width = the average standard, 3.6m (lack of data to tell us otherwise)
 - The software will also assign each defect to a specific depot, splitting the workload by geography.
 - Spatial, user friendly map exports and non-spatial, processed, defect attribute exports are produced by this software.
 - Databases, relationships, attribute & symbology configuration is also produced, to benefit GIS users aswell as non-GIS users.
@@ -26,7 +30,7 @@
 
  - When developing this software, Python 2.7 was utilised as part of ArcMap 10.6, therefore this is recommended when running the code.
  - ArcGIS business analyst desktop extension is required for the thiessen polygon functionality within the code to work.
- - Running the Python files via double clicking the .bat files is recommended. However, they can be run by alternate methods, such as within an MXD.
+ - Running the Python files via double clicking the .bat files is recommended (or .py if your machine uses version 2.7 by default). However, they can be run by alternate methods, such as within an MXD.
  - The following libraries are required for the code to work:
 	- arcpy
 	- os
@@ -91,7 +95,7 @@
 	
 ## License
 
-This project is licensed under the GNU License - see the LICENSE file in the following location for details: https://github.com/sideshowtee1003/Highway-Defect-Assignment/blob/master/LICENSE
+This project is licensed under the GNU License - see the LICENSE file in the following location for details: https://github.com/sideshowtee1003/Agent-Based-Modelling/blob/master/LICENSE
 
 
 ## Author
