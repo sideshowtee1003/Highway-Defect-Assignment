@@ -3,9 +3,14 @@ import arcpy
 import getpass
 import os
 import glob
+import time
+
+
+# Create time variable
+startTime = time.time()
+
+
 print('Hello ' + getpass.getuser() + ', starting data preparation...')
-
-
 
 # Set up variables:
 # de05 variables
@@ -343,4 +348,5 @@ for fcSS in deleteSS:
     if arcpy.Exists(fcSS):
         arcpy.Delete_management(fcSS)
 
-print("Workflow complete")
+# Print time taken to run the script
+print("Workflow complete in ", time.time() - startTime, " seconds")
