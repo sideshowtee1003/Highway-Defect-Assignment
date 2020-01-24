@@ -31,6 +31,7 @@
  - When developing this software, Python 2.7 was utilised as part of ArcMap 10.6, therefore this is recommended when running the code.
  - ArcGIS business analyst desktop extension is required for the thiessen polygon functionality within the code to work.
  - Running the Python files via double clicking the .bat files is recommended (or .py if your machine uses version 2.7 by default). However, they can be run by alternate methods, such as within an MXD.
+ - When running via the .bat file. The main script takes approximately 4 minutes to run.
  - The following libraries are required for the code to work:
 	- arcpy
 	- os
